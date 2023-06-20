@@ -8,6 +8,8 @@ from .identity import Identity
 
 
 class Game:
+    __word_category = "默认"
+
     def __init__(self, host_user_id: int):
         self.__status: GameStatus = GameStatus.WAITING
         self.__spy_players = 1
@@ -18,8 +20,24 @@ class Game:
         self.__player_list = []
         self.__civilian_list = []
         self.__spy_list = []
-        self.__word_category = "默认"
         self.__word = {"平民": None, "卧底": None}
+
+    @classmethod
+    def change_global_word(cls, word):
+        words = Game.get_words()
+        words = words.keys()
+
+        if word not in words:
+            return 1
+
+        cls.__word_category = word
+        return 0
+
+    @staticmethod
+    def get_words() -> dict:
+        with open("data/words.json", "r", encoding="utf-8") as file:
+            words = json.load(file)
+        return words
 
     def get_host_user_id(self):
         return self.__host_user_id

@@ -1,4 +1,5 @@
 import datetime
+import json
 from typing import Optional
 from nonebot import on_request
 from nonebot import CommandGroup
@@ -17,19 +18,14 @@ from .identity import Identity
 
 games: dict[int, Optional[Game]] = {}
 
-
-def get_expire_time(minutes=30):
-    now = datetime.datetime.now()
-    return now + datetime.timedelta(minutes=minutes)
-
-
 spy_cmd = CommandGroup("卧底游戏", priority=10)
 create_cmd = spy_cmd.command("创建")
 delete_cmd = spy_cmd.command("删除")
 join_cmd = spy_cmd.command("加入")
 leave_cmd = spy_cmd.command("退出")
 ban_cmd = spy_cmd.command("踢人")
-start_cmd = spy_cmd.command("开始", expire_time=get_expire_time())
+change_global_word_cmd = spy_cmd.command("更改词库")
+start_cmd = spy_cmd.command("开始")
 notice_event = on_request()
 
 
@@ -134,6 +130,35 @@ async def _(bot: Bot, event: GroupMessageEvent):
             message = "您是房主，只能删除游戏！"
         case 3:
             message = "无法退出！您未加入游戏！"
+
+    await bot.send_group_msg(group_id=group_id, message=message)
+
+
+@change_global_word_cmd.handle()
+async def _(bot: Bot, event: GroupMessageEvent):
+    group_id = event.group_id
+
+    # 判断是否为管理员
+    if event.sender.role == "member":
+        await bot.send_group_msg(group_id=group_id, message="您不是管理员，无法更改词库！")
+        await change_global_word_cmd.finish()
+
+    words = Game.get_words().keys()
+    message = "请输入要更改的词库\n" + "\n".join(words)
+    await bot.send_group_msg(group_id=group_id, message=message)
+
+
+@change_global_word_cmd.receive()
+async def _(bot: Bot, event: GroupMessageEvent):
+    group_id = event.group_id
+    new_words = event.raw_message
+
+    message = "未知错误!"
+    match Game.change_global_word(new_words):
+        case 1:
+            message = "不存在该词库！"
+        case 0:
+            message = f"已更改词库为{new_words}"
 
     await bot.send_group_msg(group_id=group_id, message=message)
 
