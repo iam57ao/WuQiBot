@@ -235,7 +235,8 @@ async def _(matcher: Matcher, state: T_State) -> Permission:
         user_id = user.get_user_id()
         ids.extend([f"group_{group_id}_{user_id}", f"{user_id}"])
 
-    if host_user_id := this_game.get_host_user_id() not in ids:
+    host_user_id = this_game.get_host_user_id()
+    if this_game.get_player(host_user_id).get_status() == PlayerStatus.OUT:
         ids.append(f"group_{group_id}_{host_user_id}")
 
     return USER(*ids, perm=matcher.permission)
