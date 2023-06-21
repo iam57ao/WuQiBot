@@ -1,5 +1,3 @@
-import datetime
-import json
 from typing import Optional
 from nonebot import on_request
 from nonebot import CommandGroup
@@ -25,7 +23,7 @@ join_cmd = spy_cmd.command("加入")
 leave_cmd = spy_cmd.command("退出")
 ban_cmd = spy_cmd.command("踢人")
 change_global_word_cmd = spy_cmd.command("更改词库")
-start_cmd = spy_cmd.command("开始")
+start_cmd = spy_cmd.command("启动")
 notice_event = on_request()
 
 
@@ -232,9 +230,14 @@ async def _(matcher: Matcher, state: T_State) -> Permission:
     group_id = state["group_id"]
     this_game: Game = state["this_game"]
     ids = []
+
     for user in this_game.get_alive_players():
         user_id = user.get_user_id()
         ids.extend([f"group_{group_id}_{user_id}", f"{user_id}"])
+
+    if host_user_id := this_game.get_host_user_id() not in ids:
+        ids.append(f"group_{group_id}_{host_user_id}")
+
     return USER(*ids, perm=matcher.permission)
 
 
@@ -251,13 +254,13 @@ async def _(bot: Bot,
         await start_cmd.finish()
 
     # 游戏中删除游戏
-    if this_game.get_host_user_id() == user_id and event.raw_message == "结束游戏":
+    if (this_game.get_host_user_id() == user_id or event.sender.role != "member") and event.raw_message == "结束游戏":
         games[group_id] = None
         await bot.send_group_msg(group_id=group_id, message="游戏已结束！")
         await start_cmd.finish()
 
     # 群事件响应
-    if event.message_type == "group":
+    if isinstance(event, GroupMessageEvent):
         match this_game.get_status():
             case GameStatus.VOTING:
                 await start_cmd.reject()
@@ -284,8 +287,11 @@ async def _(bot: Bot,
                     await bot.send_group_msg(group_id=group_id, message=message)
                     await start_cmd.reject()
 
-                # 检测语句是否包含自己的词汇
+                # 判断是否是已经被淘汰的房主
                 player = this_game.get_player(user_id)
+                if player.get_status() == PlayerStatus.OUT:
+                    await start_cmd.reject()
+
                 word = this_game.get_word()[
                     "卧底" if player.get_identity() == Identity.SPY else "平民"]
 
